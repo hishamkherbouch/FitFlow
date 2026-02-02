@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\hkher\Desktop\Workout App\build\windows\x64\CMakeFiles\664f674f4e7578a4f4622d51885ce9b2\INSTALL_force.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{F9C784E3-01C2-356E-BB7B-DD6349A68025}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
