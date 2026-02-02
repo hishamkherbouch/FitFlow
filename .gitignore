@@ -1,0 +1,44 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Web
+web/assets/
+web/icons/
+
+# Windows
+Thumbs.db
+
+# Android Studio
+local.properties
+
+# Generated files
+**/*.g.dart
+
+# Sensitive
+.env
