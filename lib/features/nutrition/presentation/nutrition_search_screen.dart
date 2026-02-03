@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:openfoodfacts/openfoodfacts.dart';
 
 import '../data/nutrition_repository.dart';
-import '../data/open_food_facts_service.dart';
+import '../data/usda_food_service.dart';
 
 class NutritionSearchScreen extends StatefulWidget {
   const NutritionSearchScreen({super.key});
@@ -14,17 +13,20 @@ class NutritionSearchScreen extends StatefulWidget {
 
 class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
   final _queryController = TextEditingController();
-  final _service = OpenFoodFactsService();
+  final _amountController = TextEditingController(text: '100');
+  final _service = UsdaFoodService();
   final _repository = NutritionRepository();
 
   bool _isLoading = false;
   String? _error;
-  List<Product> _results = [];
-  Product? _selectedProduct;
+  List<UsdaFoodItem> _results = [];
+  UsdaFoodItem? _selectedProduct;
+  double _amountGrams = 100.0;
 
   @override
   void dispose() {
     _queryController.dispose();
+    _amountController.dispose();
     super.dispose();
   }
 
@@ -32,7 +34,7 @@ class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
     final query = _queryController.text.trim();
     if (query.isEmpty) {
       setState(() {
-        _error = 'Enter a product name or barcode.';
+        _error = 'Enter a food name to search.';
         _results = [];
         _selectedProduct = null;
       });
@@ -49,13 +51,19 @@ class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
       final results = await _service.search(query);
       setState(() {
         _results = results;
-        _error = results.isEmpty ? 'No results found.' : null;
+        if (results.isEmpty) {
+          _error = 'No results found. Try a different search term.';
+        } else {
+          _error = null;
+        }
       });
     } catch (error) {
       setState(() {
-        _error = error.toString();
+        _error = 'Search failed: ${error.toString()}';
         _results = [];
       });
+      // Print error for debugging
+      debugPrint('USDA Search Error: $error');
     } finally {
       setState(() {
         _isLoading = false;
@@ -63,46 +71,46 @@ class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
     }
   }
 
-  double? _calories(Product product) => product.nutriments
-      ?.getValue(Nutrient.energyKCal, PerSize.oneHundredGrams);
-  double? _protein(Product product) =>
-      product.nutriments?.getValue(Nutrient.proteins, PerSize.oneHundredGrams);
-  double? _carbs(Product product) => product.nutriments
-      ?.getValue(Nutrient.carbohydrates, PerSize.oneHundredGrams);
-  double? _fats(Product product) =>
-      product.nutriments?.getValue(Nutrient.fat, PerSize.oneHundredGrams);
-
-  bool _hasAllMacros(Product product) {
-    return _calories(product) != null &&
-        _protein(product) != null &&
-        _carbs(product) != null &&
-        _fats(product) != null;
-  }
-
   Future<void> _logSelected() async {
     final product = _selectedProduct;
     if (product == null) return;
 
-    final calories = _calories(product);
-    final protein = _protein(product);
-    final carbs = _carbs(product);
-    final fats = _fats(product);
+    final amount = _amountGrams;
+    final ratio = amount / 100.0;
 
-    if (calories == null || protein == null || carbs == null || fats == null) {
-      _showSnack('Missing macro data for this item.');
-      return;
-    }
+    final calories = product.calories * ratio;
+    final protein = product.protein * ratio;
+    final carbs = product.carbs * ratio;
+    final fats = product.fats * ratio;
 
     try {
       await _repository.addNutritionLog(
+        foodName: product.description,
+        grams: amount,
+        servingLabel: amount == 100.0 ? null : '${amount.toStringAsFixed(0)}g',
+        source: 'usda',
         calories: calories,
         protein: protein,
         carbs: carbs,
         fats: fats,
       );
-      _showSnack('Logged to Supabase.');
+      _showSnack('Logged successfully!');
+      setState(() {
+        _selectedProduct = null;
+        _amountController.text = '100';
+        _amountGrams = 100.0;
+      });
     } catch (error) {
       _showSnack('Log failed: $error');
+    }
+  }
+
+  void _updateAmount(String value) {
+    final parsed = double.tryParse(value);
+    if (parsed != null && parsed > 0) {
+      setState(() {
+        _amountGrams = parsed;
+      });
     }
   }
 
@@ -129,8 +137,9 @@ class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
               textInputAction: TextInputAction.search,
               onSubmitted: (_) => _search(),
               decoration: const InputDecoration(
-                labelText: 'Product name or barcode',
+                labelText: 'Search foods (e.g., chicken breast, rice, apple)',
                 border: OutlineInputBorder(),
+                hintText: 'Try: chicken breast, brown rice, banana...',
               ),
             ),
             const Gap(12),
@@ -157,28 +166,32 @@ class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final product = _results[index];
-                    final name = product.productName?.trim();
                     return ListTile(
-                      leading: product.imageFrontUrl == null
-                          ? const Icon(Icons.restaurant)
-                          : Image.network(
-                              product.imageFrontUrl!,
-                              width: 48,
-                              height: 48,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
-                                  const Icon(Icons.restaurant),
+                      leading: Icon(
+                        product.isGeneric ? Icons.restaurant : Icons.shopping_bag,
+                        color: product.isGeneric 
+                            ? Theme.of(context).colorScheme.primary 
+                            : null,
+                      ),
+                      title: Text(product.description),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (product.brandOwner != null && product.brandOwner!.isNotEmpty)
+                            Text(
+                              product.brandOwner!,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                      title: Text(name == null || name.isEmpty
-                          ? 'Unknown food'
-                          : name),
-                      subtitle: Text(
-                        _hasAllMacros(product)
-                            ? 'kcal ${_calories(product)!.toStringAsFixed(0)} '
-                                '• P ${_protein(product)!.toStringAsFixed(1)}g '
-                                '• C ${_carbs(product)!.toStringAsFixed(1)}g '
-                                '• F ${_fats(product)!.toStringAsFixed(1)}g'
-                            : 'Macro data not available',
+                          const SizedBox(height: 4),
+                          Text(
+                            'kcal ${product.calories.toStringAsFixed(0)} '
+                            '• P ${product.protein.toStringAsFixed(1)}g '
+                            '• C ${product.carbs.toStringAsFixed(1)}g '
+                            '• F ${product.fats.toStringAsFixed(1)}g (per 100g)',
+                          ),
+                        ],
                       ),
                       onTap: () {
                         setState(() {
@@ -198,19 +211,52 @@ class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        selected.productName ?? 'Selected item',
+                        selected.description,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const Gap(8),
-                      Text('Calories: ${_formatMacro(_calories(selected))}'),
-                      Text('Protein: ${_formatMacro(_protein(selected))} g'),
-                      Text('Carbs: ${_formatMacro(_carbs(selected))} g'),
-                      Text('Fats: ${_formatMacro(_fats(selected))} g'),
+                      if (selected.brandOwner != null && selected.brandOwner!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            selected.brandOwner!,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      const Gap(12),
+                      TextField(
+                        controller: _amountController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Amount (grams)',
+                          border: OutlineInputBorder(),
+                          suffixText: 'g',
+                        ),
+                        onChanged: _updateAmount,
+                      ),
+                      const Gap(12),
+                      Text(
+                        'Per ${_amountGrams.toStringAsFixed(0)}g:',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const Gap(4),
+                      Text(
+                        'Calories: ${(selected.calories * _amountGrams / 100).toStringAsFixed(0)}',
+                      ),
+                      Text(
+                        'Protein: ${(selected.protein * _amountGrams / 100).toStringAsFixed(1)} g',
+                      ),
+                      Text(
+                        'Carbs: ${(selected.carbs * _amountGrams / 100).toStringAsFixed(1)} g',
+                      ),
+                      Text(
+                        'Fats: ${(selected.fats * _amountGrams / 100).toStringAsFixed(1)} g',
+                      ),
                       const Gap(12),
                       ElevatedButton(
-                        onPressed:
-                            _hasAllMacros(selected) ? _logSelected : null,
-                        child: const Text('Log to Supabase'),
+                        onPressed: _logSelected,
+                        child: const Text('Log Food'),
                       ),
                     ],
                   ),
