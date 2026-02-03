@@ -12,27 +12,6 @@ Future<void> main() async {
     anonKey: AppConfig.supabaseAnonKey,
   );
 
-  // Sign in anonymously so users can log entries
-  final client = Supabase.instance.client;
-  if (client.auth.currentUser == null) {
-    try {
-      final response = await client.auth.signInAnonymously();
-      if (response.user == null) {
-        debugPrint('Warning: Anonymous sign-in returned null user');
-      } else {
-        debugPrint('Successfully signed in anonymously: ${response.user!.id}');
-      }
-    } catch (e) {
-      debugPrint('Error signing in anonymously: $e');
-      debugPrint(
-        'Please enable Anonymous authentication '
-        'in your Supabase dashboard: Authentication > Providers > Anonymous',
-      );
-    }
-  } else {
-    debugPrint('User already authenticated: ${client.auth.currentUser!.id}');
-  }
-
   runApp(const MyApp());
 }
 

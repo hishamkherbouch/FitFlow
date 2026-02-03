@@ -41,6 +41,7 @@ class NutritionRepository {
   Future<void> addNutritionLog({
     required String foodName,
     required double grams,
+    required String mealType,
     String? servingLabel,
     String? source,
     required double calories,
@@ -54,6 +55,7 @@ class NutritionRepository {
       'user_id': userId,
       'logged_at': DateTime.now().toIso8601String(),
       'food_name': foodName,
+      'meal_type': mealType,
       'grams': grams,
       'calories': calories,
       'protein': protein,
@@ -116,6 +118,7 @@ class NutritionRepository {
 
   Future<void> updateNutritionLog({
     required String id,
+    String? mealType,
     double? grams,
     double? calories,
     double? protein,
@@ -125,6 +128,7 @@ class NutritionRepository {
     final userId = await _ensureAuthenticated();
 
     final payload = <String, dynamic>{};
+    if (mealType != null) payload['meal_type'] = mealType;
     if (grams != null) payload['grams'] = grams;
     if (calories != null) payload['calories'] = calories;
     if (protein != null) payload['protein'] = protein;

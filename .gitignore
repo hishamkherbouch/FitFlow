@@ -42,3 +42,7 @@ local.properties
 
 # Sensitive
 .env
+
+# Local scripts
+/scripts/run_android.ps1
+

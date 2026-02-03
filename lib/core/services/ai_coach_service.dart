@@ -1,10 +1,26 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
 
 class AiCoachService {
-  AiCoachService({String? apiKey})
-      : _apiKey = apiKey ?? const String.fromEnvironment('GEMINI_API_KEY');
+  AiCoachService({String? apiKey, String? model})
+      : _apiKey = apiKey ?? const String.fromEnvironment('GEMINI_API_KEY'),
+        _model = _normalizeModel(
+          model ??
+              const String.fromEnvironment(
+                'GEMINI_MODEL',
+                defaultValue: 'gemini-1.0-pro',
+              ),
+        );
 
   final String _apiKey;
+  final String _model;
+
+  static String _normalizeModel(String value) {
+    const prefix = 'models/';
+    if (value.startsWith(prefix)) {
+      return value.substring(prefix.length);
+    }
+    return value;
+  }
 
   void validate() {
     if (_apiKey.isEmpty) {
@@ -21,7 +37,7 @@ class AiCoachService {
     validate();
 
     final model = GenerativeModel(
-      model: 'gemini-1.5-pro',
+      model: _model,
       apiKey: _apiKey,
     );
 

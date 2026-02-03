@@ -20,6 +20,19 @@ class _DailyNutritionScreenState extends State<DailyNutritionScreen> {
   bool _isLoading = false;
   String? _error;
   StreamSubscription? _logSubscription;
+  static const Map<String, String> _mealLabels = {
+    NutritionLog.mealBreakfast: 'Breakfast',
+    NutritionLog.mealLunch: 'Lunch',
+    NutritionLog.mealDinner: 'Dinner',
+    NutritionLog.mealSnack: 'Snack',
+  };
+
+  static const List<String> _mealOrder = [
+    NutritionLog.mealBreakfast,
+    NutritionLog.mealLunch,
+    NutritionLog.mealDinner,
+    NutritionLog.mealSnack,
+  ];
 
   @override
   void initState() {
@@ -97,6 +110,9 @@ class _DailyNutritionScreenState extends State<DailyNutritionScreen> {
       _logs.fold(0.0, (sum, log) => sum + log.protein);
   double get _totalCarbs => _logs.fold(0.0, (sum, log) => sum + log.carbs);
   double get _totalFats => _logs.fold(0.0, (sum, log) => sum + log.fats);
+
+  double _mealCalories(List<NutritionLog> logs) =>
+      logs.fold(0.0, (sum, log) => sum + log.calories);
 
   @override
   Widget build(BuildContext context) {
@@ -252,84 +268,114 @@ class _DailyNutritionScreenState extends State<DailyNutritionScreen> {
                     ),
                   ),
                   Expanded(
-                    child: ListView.separated(
+                    child: ListView(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _logs.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final log = _logs[index];
-                        return Dismissible(
-                          key: Key(log.id ?? index.toString()),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            color: Theme.of(context).colorScheme.error,
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 16),
-                            child: Icon(
-                              Icons.delete,
-                              color: Theme.of(context).colorScheme.onError,
-                            ),
-                          ),
-                          confirmDismiss: (direction) async {
-                            return await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Delete log?'),
-                                content: Text(
-                                    'Remove ${log.foodName} from this day?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor:
-                                          Theme.of(context).colorScheme.error,
+                      children: [
+                        for (final meal in _mealOrder)
+                          ...() {
+                            final mealLogs = _logs
+                                .where((log) => log.mealType == meal)
+                                .toList();
+                            if (mealLogs.isEmpty) {
+                              return const <Widget>[];
+                            }
+                            return <Widget>[
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  top: 8,
+                                  bottom: 4,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      _mealLabels[meal] ?? meal,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
                                     ),
-                                    child: const Text('Delete'),
-                                  ),
-                                ],
+                                    Text(
+                                      '${_mealCalories(mealLogs).toStringAsFixed(0)} kcal',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            );
-                          },
-                          onDismissed: (direction) {
-                            _deleteLog(log, confirm: false);
-                          },
-                          child: ListTile(
-                            title: Text(log.foodName),
-                            subtitle: Text(
-                              '${log.grams.toStringAsFixed(0)}g'
-                              '${log.servingLabel != null ? ' • ${log.servingLabel}' : ''}',
-                            ),
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  '${log.calories.toStringAsFixed(0)} kcal',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                                Text(
-                                  'P: ${log.protein.toStringAsFixed(1)}g',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
+                              for (final log in mealLogs) ...[
+                                ListTile(
+                                  title: Text(log.foodName),
+                                  subtitle: Text(
+                                    '${log.grams.toStringAsFixed(0)}g'
+                                    '${log.servingLabel != null ? ' • ${log.servingLabel}' : ''}',
+                                  ),
+                                  onTap: () => _showLogActions(log),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            '${log.calories.toStringAsFixed(0)} kcal',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium,
+                                          ),
+                                          Text(
+                                            'P: ${log.protein.toStringAsFixed(1)}g',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                          ),
+                                        ],
                                       ),
+                                      const SizedBox(width: 8),
+                                      PopupMenuButton<_LogAction>(
+                                        onSelected: (action) {
+                                          switch (action) {
+                                            case _LogAction.edit:
+                                              _editLog(log);
+                                              break;
+                                            case _LogAction.delete:
+                                              _deleteLog(log, confirm: true);
+                                              break;
+                                          }
+                                        },
+                                        itemBuilder: (context) => const [
+                                          PopupMenuItem(
+                                            value: _LogAction.edit,
+                                            child: Text('Edit'),
+                                          ),
+                                          PopupMenuItem(
+                                            value: _LogAction.delete,
+                                            child: Text('Delete'),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                                const Divider(height: 1),
                               ],
-                            ),
-                            onTap: () => _editLog(log),
-                          ),
-                        );
-                      },
+                            ];
+                          }(),
+                      ],
                     ),
                   ),
                 ],
@@ -404,6 +450,43 @@ class _DailyNutritionScreenState extends State<DailyNutritionScreen> {
     }
   }
 
+  void _showLogActions(NutritionLog log) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('Edit'),
+              onTap: () {
+                Navigator.pop(context);
+                _editLog(log);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.delete,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                'Delete',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _deleteLog(log, confirm: true);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _deleteLog(NutritionLog log, {bool confirm = true}) async {
     bool? confirmed = true;
     if (confirm) {
@@ -451,6 +534,8 @@ class _DailyNutritionScreenState extends State<DailyNutritionScreen> {
     }
   }
 }
+
+enum _LogAction { edit, delete }
 
 class _TotalItem extends StatelessWidget {
   final String label;

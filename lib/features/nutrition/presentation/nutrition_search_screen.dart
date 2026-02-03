@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 
+import '../data/nutrition_log.dart';
 import '../data/nutrition_repository.dart';
 import '../data/usda_food_service.dart';
+import 'daily_nutrition_screen.dart';
 
 class NutritionSearchScreen extends StatefulWidget {
   const NutritionSearchScreen({super.key});
@@ -22,6 +24,22 @@ class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
   List<UsdaFoodItem> _results = [];
   UsdaFoodItem? _selectedProduct;
   double _amountGrams = 100.0;
+  String _mealType = NutritionLog.mealBreakfast;
+  List<NutritionLog> _todayLogs = [];
+  bool _isTotalsLoading = false;
+
+  static const Map<String, String> _mealLabels = {
+    NutritionLog.mealBreakfast: 'Breakfast',
+    NutritionLog.mealLunch: 'Lunch',
+    NutritionLog.mealDinner: 'Dinner',
+    NutritionLog.mealSnack: 'Snack',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTodayTotals();
+  }
 
   @override
   void dispose() {
@@ -87,6 +105,7 @@ class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
       await _repository.addNutritionLog(
         foodName: product.description,
         grams: amount,
+        mealType: _mealType,
         servingLabel: amount == 100.0 ? null : '${amount.toStringAsFixed(0)}g',
         source: 'usda',
         calories: calories,
@@ -100,10 +119,40 @@ class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
         _amountController.text = '100';
         _amountGrams = 100.0;
       });
+      await _loadTodayTotals();
     } catch (error) {
       _showSnack('Log failed: $error');
     }
   }
+
+  Future<void> _loadTodayTotals() async {
+    setState(() {
+      _isTotalsLoading = true;
+    });
+    try {
+      final logs = await _repository.getLogsForDay(DateTime.now());
+      setState(() {
+        _todayLogs = logs;
+      });
+    } catch (_) {
+      // Ignore totals errors; search should still work.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTotalsLoading = false;
+        });
+      }
+    }
+  }
+
+  double get _todayCalories =>
+      _todayLogs.fold(0.0, (sum, log) => sum + log.calories);
+  double get _todayProtein =>
+      _todayLogs.fold(0.0, (sum, log) => sum + log.protein);
+  double get _todayCarbs =>
+      _todayLogs.fold(0.0, (sum, log) => sum + log.carbs);
+  double get _todayFats =>
+      _todayLogs.fold(0.0, (sum, log) => sum + log.fats);
 
   void _updateAmount(String value) {
     final parsed = double.tryParse(value);
@@ -126,12 +175,29 @@ class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
     final selected = _selectedProduct;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Nutrition Search')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      appBar: AppBar(
+        title: const Text('Nutrition Search'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month),
+            tooltip: 'History',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const DailyNutritionScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
             TextField(
               controller: _queryController,
               textInputAction: TextInputAction.search,
@@ -225,6 +291,28 @@ class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
                           ),
                         ),
                       const Gap(12),
+                      DropdownButtonFormField<String>(
+                        value: _mealType,
+                        decoration: const InputDecoration(
+                          labelText: 'Meal',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _mealLabels.entries
+                            .map(
+                              (entry) => DropdownMenuItem(
+                                value: entry.key,
+                                child: Text(entry.value),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _mealType = value;
+                          });
+                        },
+                      ),
+                      const Gap(12),
                       TextField(
                         controller: _amountController,
                         keyboardType: TextInputType.number,
@@ -263,8 +351,57 @@ class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
                 ),
               ),
             ],
-          ],
-        ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              16,
+              0,
+              16,
+              12 + kBottomNavigationBarHeight,
+            ),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _MacroChip(
+                      label: 'Calories',
+                      value: _isTotalsLoading
+                          ? '...'
+                          : _todayCalories.toStringAsFixed(0),
+                      unit: 'kcal',
+                    ),
+                    _MacroChip(
+                      label: 'Protein',
+                      value: _isTotalsLoading
+                          ? '...'
+                          : _todayProtein.toStringAsFixed(1),
+                      unit: 'g',
+                    ),
+                    _MacroChip(
+                      label: 'Carbs',
+                      value: _isTotalsLoading
+                          ? '...'
+                          : _todayCarbs.toStringAsFixed(1),
+                      unit: 'g',
+                    ),
+                    _MacroChip(
+                      label: 'Fats',
+                      value: _isTotalsLoading
+                          ? '...'
+                          : _todayFats.toStringAsFixed(1),
+                      unit: 'g',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -272,5 +409,35 @@ class _NutritionSearchScreenState extends State<NutritionSearchScreen> {
   String _formatMacro(double? value) {
     if (value == null) return 'N/A';
     return value.toStringAsFixed(1);
+  }
+}
+
+class _MacroChip extends StatelessWidget {
+  const _MacroChip({
+    required this.label,
+    required this.value,
+    required this.unit,
+  });
+
+  final String label;
+  final String value;
+  final String unit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          '$value $unit',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ],
+    );
   }
 }

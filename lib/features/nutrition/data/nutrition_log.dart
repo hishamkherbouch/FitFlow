@@ -1,9 +1,15 @@
 class NutritionLog {
+  static const String mealBreakfast = 'breakfast';
+  static const String mealLunch = 'lunch';
+  static const String mealDinner = 'dinner';
+  static const String mealSnack = 'snack';
+
   final String? id;
   final String? userId;
   final DateTime loggedAt;
   final String foodName;
   final String? source;
+  final String mealType;
   final double grams;
   final String? servingLabel;
   final double calories;
@@ -17,6 +23,7 @@ class NutritionLog {
     required this.loggedAt,
     required this.foodName,
     this.source,
+    required this.mealType,
     required this.grams,
     this.servingLabel,
     required this.calories,
@@ -32,6 +39,7 @@ class NutritionLog {
       loggedAt: DateTime.parse(json['logged_at'] as String),
       foodName: json['food_name'] as String,
       source: json['source'] as String?,
+      mealType: (json['meal_type'] as String?) ?? mealSnack,
       grams: (json['grams'] as num?)?.toDouble() ?? (json['amount_grams'] as num?)?.toDouble() ?? 0.0,
       servingLabel: json['serving_label'] as String?,
       calories: (json['calories'] as num).toDouble(),
@@ -48,6 +56,7 @@ class NutritionLog {
       'logged_at': loggedAt.toIso8601String(),
       'food_name': foodName,
       if (source != null) 'source': source,
+      'meal_type': mealType,
       'grams': grams,
       if (servingLabel != null) 'serving_label': servingLabel,
       'calories': calories,
@@ -63,6 +72,7 @@ class NutritionLog {
     DateTime? loggedAt,
     String? foodName,
     String? source,
+    String? mealType,
     double? grams,
     String? servingLabel,
     double? calories,
@@ -76,6 +86,7 @@ class NutritionLog {
       loggedAt: loggedAt ?? this.loggedAt,
       foodName: foodName ?? this.foodName,
       source: source ?? this.source,
+      mealType: mealType ?? this.mealType,
       grams: grams ?? this.grams,
       servingLabel: servingLabel ?? this.servingLabel,
       calories: calories ?? this.calories,

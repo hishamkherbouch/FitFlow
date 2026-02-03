@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../features/coach/presentation/ai_coach_screen.dart';
-import '../../features/nutrition/presentation/daily_nutrition_screen.dart';
+import '../../features/home/presentation/home_screen.dart';
 import '../../features/nutrition/presentation/nutrition_search_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/training/presentation/training_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -14,10 +16,18 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    NutritionSearchScreen(),
-    DailyNutritionScreen(),
-    AiCoachScreen(),
+  late final List<Widget> _screens = [
+    HomeScreen(
+      onNavigate: (index) {
+        setState(() {
+          _currentIndex = index;
+        });
+      },
+    ),
+    const NutritionSearchScreen(),
+    const TrainingScreen(),
+    const AiCoachScreen(),
+    const ProfileScreen(),
   ];
 
   @override
@@ -36,19 +46,29 @@ class _MainNavigationState extends State<MainNavigation> {
         },
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.search),
-            selectedIcon: Icon(Icons.search),
-            label: 'Search',
+            icon: Icon(Icons.home),
+            selectedIcon: Icon(Icons.home),
+            label: 'Home',
           ),
           NavigationDestination(
-            icon: Icon(Icons.history),
-            selectedIcon: Icon(Icons.history),
-            label: 'History',
+            icon: Icon(Icons.restaurant),
+            selectedIcon: Icon(Icons.restaurant),
+            label: 'Diet',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.fitness_center),
+            selectedIcon: Icon(Icons.fitness_center),
+            label: 'Training',
           ),
           NavigationDestination(
             icon: Icon(Icons.psychology),
             selectedIcon: Icon(Icons.psychology),
             label: 'Coach',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
           ),
         ],
       ),

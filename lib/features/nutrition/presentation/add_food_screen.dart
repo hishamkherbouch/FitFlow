@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 
+import '../data/nutrition_log.dart';
 import '../data/nutrition_repository.dart';
 import '../data/open_food_facts_client.dart';
 
@@ -79,8 +80,14 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
 
     try {
       await _repository.addNutritionLog(
+        foodName: item.name,
+        grams: grams,
+        mealType: NutritionLog.mealSnack,
+        source: 'open_food_facts',
         calories: calories,
         protein: protein,
+        carbs: 0,
+        fats: 0,
       );
       _showSnack('Saved ${item.name}.');
     } catch (error) {
